@@ -4,7 +4,7 @@
 To obtain the row profile of a given row of an image using Python.
 
 ## Software Required
-- Python 3.x
+- Python 3.10.12
 - OpenCV
 - NumPy
 - Matplotlib
