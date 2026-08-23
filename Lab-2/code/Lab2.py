@@ -1,11 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from PIL import Image
 
 
 # ============================================================
-# COMMON FUNCTIONS
+#                    COMMON FUNCTIONS
 # ============================================================
+
+def load_grayscale_image(image_path):
+    """
+    Load an image and convert it to grayscale uint8.
+    """
+    image = Image.open(image_path).convert("L")
+    return np.array(image).astype(np.uint8)
+
 
 def calculate_histogram(image):
     image = np.asarray(image).astype(np.uint8)
@@ -30,7 +39,7 @@ def calculate_cdf(histogram):
 
 
 # ============================================================
-# HISTOGRAM EQUALIZATION
+#                 HISTOGRAM EQUALIZATION
 # ============================================================
 
 def histogram_equalization(image):
@@ -49,7 +58,7 @@ def histogram_equalization(image):
 
 
 # ============================================================
-# HISTOGRAM MATCHING
+#                    HISTOGRAM MATCHING
 # ============================================================
 
 def histogram_matching(source, reference):
@@ -58,7 +67,6 @@ def histogram_matching(source, reference):
     reference = np.asarray(reference).astype(np.uint8)
 
     source_histogram = calculate_histogram(source)
-
     reference_histogram = calculate_histogram(reference)
 
     source_cdf = calculate_cdf(
@@ -99,7 +107,7 @@ def histogram_matching(source, reference):
 
 
 # ============================================================
-# ANALYTICAL TARGET HISTOGRAM
+#              ANALYTICAL TARGET HISTOGRAM
 # ============================================================
 
 def create_moody_target_histogram():
@@ -176,7 +184,7 @@ def histogram_match_analytical_target(
 
 
 # ============================================================
-# FAILURE CASE
+#                   FAILURE CASE
 # ============================================================
 
 def create_failure_case_images():
@@ -197,24 +205,20 @@ def create_failure_case_images():
     # Source image
 
     source[:150, :] = 40
-
     source[150:300, 100:350] = 210
-
     source[220:300, :] = 110
 
     # Reference image
 
     reference[:150, :] = 210
-
     reference[150:300, 100:350] = 40
-
     reference[220:300, :] = 110
 
     return source, reference
 
 
 # ============================================================
-# CLAHE
+#                         CLAHE
 # ============================================================
 
 def clahe_first_principles(
@@ -252,7 +256,9 @@ def clahe_first_principles(
         dtype=float
     )
 
+    # --------------------------------------------------------
     # Calculate histogram for each tile
+    # --------------------------------------------------------
 
     for row in range(
         number_of_rows
@@ -263,8 +269,7 @@ def clahe_first_principles(
         )
 
         row_end = min(
-            (row + 1) *
-            tile_height,
+            (row + 1) * tile_height,
             H
         )
 
@@ -277,8 +282,7 @@ def clahe_first_principles(
             )
 
             column_end = min(
-                (column + 1) *
-                tile_width,
+                (column + 1) * tile_width,
                 W
             )
 
@@ -295,13 +299,14 @@ def clahe_first_principles(
                 float
             )
 
+            # ------------------------------------------------
             # Contrast limiting
+            # ------------------------------------------------
 
             number_of_pixels = tile.size
 
             average_bin_count = (
-                number_of_pixels /
-                256
+                number_of_pixels / 256
             )
 
             maximum_bin_count = (
@@ -334,7 +339,9 @@ def clahe_first_principles(
                         maximum_bin_count
                     )
 
+            # ------------------------------------------------
             # Redistribute excess
+            # ------------------------------------------------
 
             redistribution = (
                 excess / 256
@@ -346,7 +353,9 @@ def clahe_first_principles(
                     redistribution
                 )
 
+            # ------------------------------------------------
             # Local CDF
+            # ------------------------------------------------
 
             cdf = np.cumsum(
                 histogram
@@ -387,7 +396,8 @@ def clahe_first_principles(
                         (cdf - cdf_min)
                         /
                         denominator
-                        * 255
+                        *
+                        255
                     )
 
                     mapping = np.clip(
@@ -401,7 +411,9 @@ def clahe_first_principles(
                         column
                     ] = mapping
 
+    # --------------------------------------------------------
     # Bilinear interpolation
+    # --------------------------------------------------------
 
     output = np.zeros(
         (H, W),
@@ -621,7 +633,7 @@ def clahe_first_principles(
 
 
 # ============================================================
-# ENTROPY
+#                         ENTROPY
 # ============================================================
 
 def calculate_entropy(image):
@@ -648,7 +660,7 @@ def calculate_entropy(image):
 
 
 # ============================================================
-# LOCAL CONTRAST
+#                     LOCAL CONTRAST
 # ============================================================
 
 def calculate_local_contrast(
@@ -688,7 +700,9 @@ def calculate_local_contrast(
                 x - radius:x + radius + 1
             ]
 
-            std = np.std(window)
+            std = np.std(
+                window
+            )
 
             local_std_values.append(
                 std
@@ -700,292 +714,15 @@ def calculate_local_contrast(
 
 
 # ============================================================
-# CREATE SYNTHETIC FILM FRAMES
+#                   INPUT / OUTPUT PATHS
 # ============================================================
 
-def create_film_frames():
+input_directory = Path("input")
 
-    np.random.seed(10)
-
-    H = 360
-    W = 520
-
-    Y, X = np.mgrid[
-        0:H,
-        0:W
-    ]
-
-    scene = (
-        0.25
-
-        +
-
-        0.18 *
-        np.exp(
-            -(
-                (X - 260) ** 2 /
-                (2 * 170 ** 2)
-
-                +
-
-                (Y - 180) ** 2 /
-                (2 * 120 ** 2)
-            )
-        )
-
-        +
-
-        0.20 *
-        np.exp(
-            -(
-                (X - 130) ** 2 /
-                (2 * 60 ** 2)
-
-                +
-
-                (Y - 230) ** 2 /
-                (2 * 90 ** 2)
-            )
-        )
-
-        +
-
-        0.14 *
-        np.exp(
-            -(
-                (X - 390) ** 2 /
-                (2 * 70 ** 2)
-
-                +
-
-                (Y - 220) ** 2 /
-                (2 * 100 ** 2)
-            )
-        )
-    )
-
-    texture = (
-        0.035
-        *
-        np.sin(X / 7)
-        *
-        np.sin(Y / 11)
-    )
-
-    noise = (
-        0.012 *
-        np.random.normal(
-            size=(H, W)
-        )
-    )
-
-    scene = scene + texture + noise
-
-    scene = np.clip(
-        scene,
-        0,
-        1
-    )
-
-    reference = (
-        0.90 *
-        scene
-        +
-        0.05
-    )
-
-    dark = (
-        0.68 *
-        scene
-        +
-        0.02
-    )
-
-    bright = (
-        1.22 *
-        scene
-        +
-        0.08
-    )
-
-    reference = np.clip(
-        reference,
-        0,
-        1
-    )
-
-    dark = np.clip(
-        dark,
-        0,
-        1
-    )
-
-    bright = np.clip(
-        bright,
-        0,
-        1
-    )
-
-    reference = (
-        reference * 255
-    ).astype(np.uint8)
-
-    dark = (
-        dark * 255
-    ).astype(np.uint8)
-
-    bright = (
-        bright * 255
-    ).astype(np.uint8)
-
-    return reference, dark, bright
-
-
-# ============================================================
-# CREATE SYNTHETIC X-RAY
-# ============================================================
-
-def create_xray():
-
-    np.random.seed(20)
-
-    H = 360
-    W = 520
-
-    Y, X = np.mgrid[
-        0:H,
-        0:W
-    ]
-
-    center_x = W / 2
-    center_y = H * 0.53
-
-    body = np.exp(
-        -(
-            ((X - center_x)
-             /
-             (W * 0.43)) ** 2
-
-            +
-
-            ((Y - center_y)
-             /
-             (H * 0.50)) ** 2
-        )
-    )
-
-    left_lung = np.exp(
-        -(
-            ((X - (center_x - 70))
-             /
-             (W * 0.20)) ** 2
-
-            +
-
-            ((Y - center_y)
-             /
-             (H * 0.35)) ** 2
-        )
-    )
-
-    right_lung = np.exp(
-        -(
-            ((X - (center_x + 70))
-             /
-             (W * 0.20)) ** 2
-
-            +
-
-            ((Y - center_y)
-             /
-             (H * 0.35)) ** 2
-        )
-    )
-
-    image = (
-        0.035
-        +
-        0.55 *
-        body
-    )
-
-    image -= (
-        0.27 *
-        (left_lung + right_lung)
-    )
-
-    image += (
-        0.22 *
-        np.exp(
-            -(
-                (X - center_x)
-                /
-                (W * 0.035)
-            ) ** 2
-        )
-    )
-
-    for k in range(-3, 4):
-
-        curve = (
-            center_y
-            - 75
-            + k * 38
-            + 0.0009 *
-            (X - center_x) ** 2
-        )
-
-        image += (
-            0.045 *
-            np.exp(
-                -(
-                    (Y - curve) / 3
-                ) ** 2
-            )
-        )
-
-    texture = (
-        0.022 *
-        np.sin(
-            X / 3.3 + Y / 15
-        )
-
-        +
-
-        0.018 *
-        np.sin(
-            X / 5.2 - Y / 8
-        )
-    )
-
-    image += (
-        texture *
-        (left_lung + right_lung)
-    )
-
-    image += (
-        0.012 *
-        np.random.normal(
-            size=(H, W)
-        )
-    )
-
-    image = np.clip(
-        image,
-        0,
-        1
-    )
-
-    image = (
-        image * 255
-    ).astype(np.uint8)
-
-    return image
-
-
-# ============================================================
-# OUTPUT DIRECTORY
-# ============================================================
+input_image_path = (
+    input_directory /
+    "/home/dell/Desktop/Digital-Image-and-Video-Processing/Dataset/Lab-2/image.jpg"
+)
 
 output_directory = Path(
     "histogram_clahe_results"
@@ -997,19 +734,89 @@ output_directory.mkdir(
 
 
 # ============================================================
-# MAIN PROGRAM
+#                       MAIN PROGRAM
 # ============================================================
 
 if __name__ == "__main__":
 
+    print("=" * 60)
     print("HISTOGRAM MATCHING + CLAHE")
+    print("INPUT IMAGE PROCESSING")
+    print("=" * 60)
+
+    # ========================================================
+    # LOAD INPUT IMAGE
+    # ========================================================
+
+    if not input_image_path.exists():
+
+        print("\nERROR:")
+        print(
+            "Input image not found!"
+        )
+
+        print(
+            "\nPlease put your image here:"
+        )
+
+        print(
+            "input/image.jpg"
+        )
+
+        raise SystemExit
+
+    input_image = load_grayscale_image(
+        input_image_path
+    )
+
+    print(
+        "\nInput image loaded successfully."
+    )
+
+    print(
+        "Image size:",
+        input_image.shape
+    )
+
+    # ========================================================
+    # CREATE SOURCE VARIATIONS
+    # ========================================================
+
+    reference = input_image.copy()
+
+    # Dark version
+
+    dark = (
+        input_image.astype(float)
+        * 0.65
+    )
+
+    dark = np.clip(
+        dark,
+        0,
+        255
+    ).astype(np.uint8)
+
+    # Bright version
+
+    bright = (
+        input_image.astype(float)
+        * 1.30
+        + 20
+    )
+
+    bright = np.clip(
+        bright,
+        0,
+        255
+    ).astype(np.uint8)
 
     # ========================================================
     # PART 1 - HISTOGRAM MATCHING
     # ========================================================
 
-    reference, dark, bright = (
-        create_film_frames()
+    print(
+        "\nRunning histogram matching..."
     )
 
     dark_matched, dark_lut = (
@@ -1035,7 +842,7 @@ if __name__ == "__main__":
     ]
 
     titles = [
-        "Reference",
+        "Reference / Input",
         "Dark Source",
         "Bright Source",
         "Dark Matched",
@@ -1148,7 +955,7 @@ if __name__ == "__main__":
     plt.show()
 
     # ========================================================
-    # ANALYTICAL TARGET
+    # ANALYTICAL TARGET HISTOGRAM
     # ========================================================
 
     target = (
@@ -1176,7 +983,7 @@ if __name__ == "__main__":
     )
 
     axes[0].set_title(
-        "Original Reference"
+        "Original Input"
     )
 
     axes[0].axis("off")
@@ -1189,7 +996,7 @@ if __name__ == "__main__":
     )
 
     axes[1].set_title(
-        "Moody Target"
+        "Analytical Target"
     )
 
     axes[1].axis("off")
@@ -1303,7 +1110,11 @@ if __name__ == "__main__":
     # PART 2 - CLAHE
     # ========================================================
 
-    xray = create_xray()
+    print(
+        "\nRunning CLAHE..."
+    )
+
+    xray = input_image.copy()
 
     global_equalized = (
         histogram_equalization(
@@ -1339,7 +1150,7 @@ if __name__ == "__main__":
     ]
 
     titles = [
-        "Original X-ray",
+        "Original Input",
         "Global HE",
         "CLAHE 8x8",
         "CLAHE 12x12"
@@ -1387,7 +1198,9 @@ if __name__ == "__main__":
         ("CLAHE 12x12", clahe_12x12)
     ]
 
-    print("\nQuantitative Results")
+    print(
+        "\nQuantitative Results"
+    )
 
     for name, image in results:
 
@@ -1701,14 +1514,25 @@ if __name__ == "__main__":
         comments=""
     )
 
-    print("\nAll experiments completed.")
+    # ========================================================
+    # COMPLETION MESSAGE
+    # ========================================================
+
+    print("\n" + "=" * 60)
+    print("ALL EXPERIMENTS COMPLETED SUCCESSFULLY")
+    print("=" * 60)
 
     print(
-        "Results saved in:",
+        "\nResults saved in:"
+    )
+
+    print(
         output_directory.resolve()
     )
 
-    print("\nGenerated files:")
+    print(
+        "\nGenerated files:"
+    )
 
     for file in sorted(
         output_directory.iterdir()
